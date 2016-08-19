@@ -40,11 +40,17 @@ long lastBlink;
 long lastInRangeTime;
 
 //measures
+//Pixy x: 0 ~ 319
+//Pixy height: 1 ~ 200
 int runMaxThresh = 82; //RUN ATTACK: if the pixy cam get an higher value for the height of the shield's box, the player will be considered not in range
 int runMinThresh = 47; //RUN ATTACK: if the pixy cam get a lower value for the height of the shield's box, the player will be considered not in range
+int rotationMaxThresh = 259; //ROTATION ATTACK: if the pixy cam get an higher value for the x position of the shield's box, the player will be considered not in range
+int rotationMinThresh = 60; //ROTATION ATTACK: if the pixy cam get a lower value for the x position of the shield's box, the player will be considered not in range
 int blinkDelta = 200; //RUN ATTACK and ROTATION ATTACK: set blink frequency
 int runTimeToWin = 8000;
 int runTimeToLose = 3000;
+int rotationTimeToWin = 8000;
+int rotationTimeToLose = 3000;
 
 
 void GameOver() {
@@ -133,6 +139,10 @@ void Run() {
     Serial.print("RUN! \n");
     timeStart = millis();
     newAttack = false;
+    inRange = false;
+    lastBlockTime = millis();
+    lastBlink = millis();
+    lastInRangeTime = millis();
   }
   uint16_t blocks;
   blocks = pixy.getBlocks();
@@ -160,20 +170,68 @@ void Run() {
       }
     }
     digitalWrite(white, ledState);
-    if (millis() - lastInRangeTime > runTimeToLose){
+    if (millis() - lastInRangeTime > runTimeToLose) {
       attackEND = true;
       gameOver = true;
     }
   }
-  if (millis() - timeStart > runTimeToWin){
+  if (millis() - timeStart > runTimeToWin) {
     attackEND = true;
     attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
   }
 }
 
 //Rotation attack
+//AXIS:   ---------> x
+//        |
+//        |
+//        |
+//      y v 
 void Rotation() {
-
+  if (newAttack == true) {
+    Serial.print("ROTATION! \n");
+    timeStart = millis();
+    newAttack = false;
+    inRange = false;
+    lastBlockTime = millis();
+    lastBlink = millis();
+    lastInRangeTime = millis();
+  }
+  uint16_t blocks;
+  blocks = pixy.getBlocks();
+  if (blocks) {                  //uso white (signature GREEN) ma POI ANDRÀ MODIFICATO!!!!***********
+    inRange = false;
+    for (i = 0; i < blocks; i++) {
+      if (pixy.blocks[i].signature == greenS && pixy.blocks[i].x > rotationMinThresh && pixy.blocks[i].x < rotationMaxThresh) { //it defines the field of view of the robot
+        lastBlockTime = millis();
+        lastInRangeTime = millis();
+        inRange = true;
+      }
+    }
+  } else if (millis() - lastBlockTime > 100) {
+    inRange = false;
+  }
+  if (inRange) {
+    digitalWrite(white, HIGH);
+  } else {
+    if (millis() - lastBlink > blinkDelta) {
+      lastBlink = millis();
+      if (ledState == LOW) {
+        ledState = HIGH;
+      } else {
+        ledState = LOW;
+      }
+    }
+    digitalWrite(white, ledState);
+    if (millis() - lastInRangeTime > rotationTimeToLose) {
+      attackEND = true;
+      gameOver = true;
+    }
+  }
+//  if (millis() - timeStart > rotationTimeToWin) {
+//    attackEND = true;
+//    attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
+//  }
 }
 
 
@@ -206,8 +264,8 @@ void loop() {
     //CODICE NECESSARIO PER TESTARE SINGOLARMENTE GLI ATTACCHI
     //*******************************
     //Fire();
-    Run();
-    //Rotation();
+    //Run();
+    Rotation();
     //*******************************
     //*******************************
     if (attackEND == true && attackWon == true) {
