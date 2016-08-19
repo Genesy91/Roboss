@@ -21,10 +21,11 @@ int ledState = LOW; ////RUN ATTACK and ROTATION ATTACK: used to make the led bli
 
 int i;
 int color;
+int firesCounter;
 
 //triggers
 enum  attackType {FIRE, RUN, ROTATION};
-enum  attackType currentAttack = FIRE;
+enum  attackType currentAttack;
 bool newAttack = true;
 bool gameOver = false;
 bool attackWon = false;
@@ -51,6 +52,7 @@ int runTimeToWin = 8000;
 int runTimeToLose = 3000;
 int rotationTimeToWin = 8000;
 int rotationTimeToLose = 3000;
+int numberOfFires = 5; //number of consecutive fires
 
 
 void GameOver() {
@@ -69,16 +71,32 @@ void AttackWon() {
   attackWon = false;
   attackEND = false;
   newAttack = true;
+  currentAttack = SelectNewAttack(); //select next attack
   delay(4000);
-  switch (random(3)) {
-    case 0: currentAttack = FIRE;
-      break;
-    case 1: currentAttack = RUN;
-      break;
-    case 2: currentAttack = ROTATION;
-      break;
+}
+
+attackType SelectNewAttack() {
+  if (firesCounter > 0) {
+    Serial.print("ancora");
+    --firesCounter;
+    return FIRE;
+  } else {
+    switch (random(3)) {
+      case 0: firesCounter = numberOfFires;
+        break;
+      case 1: return RUN;
+        break;
+      case 2: return ROTATION;
+        break;
+    }
+    if (firesCounter > 0) {
+      firesCounter--;
+      return FIRE;
+
+    }
   }
 }
+
 
 //random color fire attack
 void Fire() {
@@ -186,7 +204,7 @@ void Run() {
 //        |
 //        |
 //        |
-//      y v 
+//      y v
 void Rotation() {
   if (newAttack == true) {
     Serial.print("ROTATION! \n");
@@ -228,10 +246,10 @@ void Rotation() {
       gameOver = true;
     }
   }
-//  if (millis() - timeStart > rotationTimeToWin) {
-//    attackEND = true;
-//    attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
-//  }
+  if (millis() - timeStart > rotationTimeToWin) {
+    attackEND = true;
+    attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
+  }
 }
 
 
@@ -244,28 +262,35 @@ void setup() {
   pinMode(red, OUTPUT);
   digitalWrite(white, LOW);
   digitalWrite(red, LOW);
-
+  //**************************************************
+  //COMMENT ONE OF THE 2 OPTIONS
+  //**************************************************
+  //firesCounter = 0; //start with a random attack
+  firesCounter = numberOfFires; //always start with Fire
+  //**************************************************
+  //**************************************************
+  currentAttack = SelectNewAttack(); //select the first attack
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   if (gameOver == true) {
     GameOver();
-  } else { //chose a random attack..... decommentare lo switch per far funzionare tutto il gioco
-    //    switch (currentAttack) {
-    //      case FIRE: Fire();
-    //        break;
-    //      case RUN: Run();
-    //        break;
-    //      case ROTATION: Rotation();
-    //        break;
-    //    }
+  } else {
+    switch (currentAttack) {
+      case FIRE: Fire();
+        break;
+      case RUN: Run();
+        break;
+      case ROTATION: Rotation();
+        break;
+    }
     //*******************************
     //CODICE NECESSARIO PER TESTARE SINGOLARMENTE GLI ATTACCHI
     //*******************************
     //Fire();
     //Run();
-    Rotation();
+    //Rotation();
     //*******************************
     //*******************************
     if (attackEND == true && attackWon == true) {
