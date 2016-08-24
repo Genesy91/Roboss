@@ -2,7 +2,7 @@
 //1 - GREEN
 //2 - RED
 //3 - BLUE
-//4 - YELLOW
+//4 - PINK
 
 #include <Pixy.h>
 #include <SPI.h>
@@ -12,12 +12,12 @@ Pixy pixy;
 int greenS = 1;
 int redS = 2;
 int blueS = 3;
-int yellowS = 4;
+int pinkS = 4;
 
-//pins
-int red = 6;
-int white = 5;
-int ledState = LOW; ////RUN ATTACK and ROTATION ATTACK: used to make the led blink
+//pins assigned to the colors of the LED stripe
+int blue = 10;
+int red = 11;
+int green = 12;
 
 int i;
 int color;
@@ -32,6 +32,7 @@ bool attackWon = false;
 bool attackEND = false;
 bool inRange = false;
 bool runEscape = true;
+bool blinkOn = false; //RUN ATTACK and ROTATION ATTACK: used to make the led blink
 
 //timers
 int fireTimeDelta;
@@ -55,19 +56,53 @@ int rotationTimeToLose = 3000;
 int numberOfFires = 5; //number of consecutive fires
 
 
-void GameOver() {
-  digitalWrite(red, HIGH);
-  digitalWrite(white, HIGH);
-  delay(1000);
+//functions to use the LED stripe
+void MakeGREEN() {
+  digitalWrite(blue, LOW);
   digitalWrite(red, LOW);
-  digitalWrite(white, LOW);
+  digitalWrite(green, HIGH);
+}
+
+void MakeRED() {
+  digitalWrite(blue, LOW);
+  digitalWrite(red, HIGH);
+  digitalWrite(green, LOW);
+}
+
+void MakeBLUE() {
+  digitalWrite(blue, HIGH);
+  digitalWrite(red, LOW);
+  digitalWrite(green, LOW);
+}
+
+void MakePINK() {
+  digitalWrite(blue, HIGH);
+  digitalWrite(red, HIGH);
+  digitalWrite(green, LOW);
+}
+
+void MakeWHITE() {
+  digitalWrite(blue, HIGH);
+  digitalWrite(red, HIGH);
+  digitalWrite(green, HIGH);
+}
+
+void LedsOff() {
+  digitalWrite(blue, LOW);
+  digitalWrite(red, LOW);
+  digitalWrite(green, LOW);
+}
+
+void GameOver() {
+  MakeRED();
+  delay(1000);
+  LedsOff();
   delay(1000);
 }
 
 void AttackWon() {
   Serial.print("catched \n \n");
-  digitalWrite(red, LOW);
-  digitalWrite(white, LOW);
+  LedsOff();
   attackWon = false;
   attackEND = false;
   newAttack = true;
@@ -103,15 +138,21 @@ void Fire() {
   if (newAttack == true) {
     Serial.print("FIRE! \n");
     timeStart = millis();
-    color = random(2);
+    color = random(3);
     newAttack = false;
   }
-  if (color == 1) {
-    digitalWrite(red, HIGH);
+  if (color == 3) {
+    MakeGREEN();
     CatchFire(greenS, redS);
-  } else {
-    digitalWrite(white, HIGH);
+  } else if(color == 2) {
+    MakeRED();
     CatchFire(redS, greenS);
+  } else if (color == 1) {
+    MakeBLUE();
+    CatchFire(blueS, pinkS);
+  } else{
+    MakePINK();
+    CatchFire(pinkS, blueS);
   }
   if (millis() - timeStart > 3000) {
     attackEND = true;
@@ -177,17 +218,19 @@ void Run() {
     inRange = false;
   }
   if (inRange) {
-    digitalWrite(white, HIGH);
+    MakeWHITE();
   } else {
     if (millis() - lastBlink > blinkDelta) {
       lastBlink = millis();
-      if (ledState == LOW) {
-        ledState = HIGH;
+      if (blinkOn == false) {
+        blinkOn = true;
       } else {
-        ledState = LOW;
+        blinkOn = false;
       }
     }
-    digitalWrite(white, ledState);
+    if (blinkOn == true){
+      MakeWHITE();
+    } else LedsOff();
     if (millis() - lastInRangeTime > runTimeToLose) {
       attackEND = true;
       gameOver = true;
@@ -230,17 +273,19 @@ void Rotation() {
     inRange = false;
   }
   if (inRange) {
-    digitalWrite(white, HIGH);
+    MakeWHITE();
   } else {
     if (millis() - lastBlink > blinkDelta) {
       lastBlink = millis();
-      if (ledState == LOW) {
-        ledState = HIGH;
+      if (blinkOn == false) {
+        blinkOn = true;
       } else {
-        ledState = LOW;
+        blinkOn = false;
       }
     }
-    digitalWrite(white, ledState);
+    if (blinkOn == true){
+      MakeWHITE();
+    } else LedsOff();
     if (millis() - lastInRangeTime > rotationTimeToLose) {
       attackEND = true;
       gameOver = true;
@@ -258,10 +303,11 @@ void setup() {
   Serial.begin(9600); //serial port baud
   Serial.print("Starting...\n");
   pixy.init();
-  pinMode(white, OUTPUT);
+  pinMode(blue, OUTPUT);
   pinMode(red, OUTPUT);
-  digitalWrite(white, LOW);
-  digitalWrite(red, LOW);
+  pinMode(green, OUTPUT);
+  LedsOff();
+  Serial.print("gg");
   //**************************************************
   //COMMENT ONE OF THE 2 OPTIONS
   //**************************************************
