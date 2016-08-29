@@ -4,10 +4,12 @@
 //3 - BLUE
 //4 - PINK
 
+#include <SoftwareSerial.h>
 #include <Pixy.h>
 #include <SPI.h>
 
 Pixy pixy;
+SoftwareSerial serialWheels(3, 2); //needed to use wheels (yellow wire, green wire)
 //signatures
 int greenS = 1;
 int redS = 2;
@@ -16,8 +18,8 @@ int pinkS = 4;
 
 //pins assigned to the colors of the LED stripe
 int blue = 10;
-int red = 11;
-int green = 12;
+int red = 9;
+int green = 8;
 
 int i;
 int color;
@@ -31,7 +33,8 @@ bool gameOver = false;
 bool attackWon = false;
 bool attackEND = false;
 bool inRange = false;
-bool runEscape = true;
+bool rotationClock = true; //ROTATION ATTACK: clockwise
+bool runEscape = true; //RUN ATTACK: escape or chase
 bool blinkOn = false; //RUN ATTACK and ROTATION ATTACK: used to make the led blink
 
 //timers
@@ -49,6 +52,7 @@ int runMinThresh = 47; //RUN ATTACK: if the pixy cam get a lower value for the h
 int rotationMaxThresh = 259; //ROTATION ATTACK: if the pixy cam get an higher value for the x position of the shield's box, the player will be considered not in range
 int rotationMinThresh = 60; //ROTATION ATTACK: if the pixy cam get a lower value for the x position of the shield's box, the player will be considered not in range
 int blinkDelta = 200; //RUN ATTACK and ROTATION ATTACK: set blink frequency
+int runTimeEscape; //RUN ATTACK: in setup set this variable as a fraction of runTimeToWin
 int runTimeToWin = 8000;
 int runTimeToLose = 3000;
 int rotationTimeToWin = 8000;
@@ -94,13 +98,16 @@ void LedsOff() {
 }
 
 void GameOver() {
+  serialWheels.println("r 0 0 0");
   MakeRED();
   delay(1000);
   LedsOff();
   delay(1000);
+  Serial.print("\n GAME OVER");
 }
 
 void AttackWon() {
+  serialWheels.println("r 0 0 0");
   Serial.print("catched \n \n");
   LedsOff();
   attackWon = false;
@@ -112,7 +119,7 @@ void AttackWon() {
 
 attackType SelectNewAttack() {
   if (firesCounter > 0) {
-    Serial.print("ancora");
+    Serial.print("ancora \n");
     --firesCounter;
     return FIRE;
   } else {
@@ -135,22 +142,23 @@ attackType SelectNewAttack() {
 
 //random color fire attack
 void Fire() {
+  serialWheels.println("r 0 0 0");
   if (newAttack == true) {
     Serial.print("FIRE! \n");
     timeStart = millis();
-    color = random(3);
+    color = random(4);
     newAttack = false;
   }
   if (color == 3) {
     MakeGREEN();
     CatchFire(greenS, redS);
-  } else if(color == 2) {
+  } else if (color == 2) {
     MakeRED();
     CatchFire(redS, greenS);
   } else if (color == 1) {
     MakeBLUE();
     CatchFire(blueS, pinkS);
-  } else{
+  } else {
     MakePINK();
     CatchFire(pinkS, blueS);
   }
@@ -205,7 +213,7 @@ void Run() {
   }
   uint16_t blocks;
   blocks = pixy.getBlocks();
-  if (blocks) {                  //uso white (signature GREEN) ma POI ANDRÀ MODIFICATO!!!!***********
+  if (blocks) {
     inRange = false;
     for (i = 0; i < blocks; i++) {
       if (pixy.blocks[i].signature == greenS && pixy.blocks[i].height > runMinThresh && pixy.blocks[i].height < runMaxThresh) {  //match this number with the front shield signature
@@ -228,7 +236,7 @@ void Run() {
         blinkOn = false;
       }
     }
-    if (blinkOn == true){
+    if (blinkOn == true) {
       MakeWHITE();
     } else LedsOff();
     if (millis() - lastInRangeTime > runTimeToLose) {
@@ -240,6 +248,9 @@ void Run() {
     attackEND = true;
     attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
   }
+  if (millis() - timeStart < runTimeEscape) {
+    serialWheels.println("r 0.3 0 0");
+  } else serialWheels.println("r -0.3 0 0");
 }
 
 //Rotation attack
@@ -250,6 +261,9 @@ void Run() {
 //      y v
 void Rotation() {
   if (newAttack == true) {
+    if (rotationClock == true) {
+      rotationClock = false;
+    } else rotationClock = true;
     Serial.print("ROTATION! \n");
     timeStart = millis();
     newAttack = false;
@@ -258,6 +272,9 @@ void Rotation() {
     lastBlink = millis();
     lastInRangeTime = millis();
   }
+  if (rotationClock == true) {
+    serialWheels.println("r 0 0 -0.8");
+  } else serialWheels.println("r 0 0 0.8");
   uint16_t blocks;
   blocks = pixy.getBlocks();
   if (blocks) {                  //uso white (signature GREEN) ma POI ANDRÀ MODIFICATO!!!!***********
@@ -283,7 +300,7 @@ void Rotation() {
         blinkOn = false;
       }
     }
-    if (blinkOn == true){
+    if (blinkOn == true) {
       MakeWHITE();
     } else LedsOff();
     if (millis() - lastInRangeTime > rotationTimeToLose) {
@@ -300,19 +317,21 @@ void Rotation() {
 
 void setup() {
   // put your setup code here, to run once:
+  serialWheels.begin(115200);
   Serial.begin(9600); //serial port baud
   Serial.print("Starting...\n");
+  serialWheels.println("r 0 0 0");
   pixy.init();
   pinMode(blue, OUTPUT);
   pinMode(red, OUTPUT);
   pinMode(green, OUTPUT);
+  runTimeEscape = runTimeToWin / 2;
   LedsOff();
-  Serial.print("gg");
   //**************************************************
   //COMMENT ONE OF THE 2 OPTIONS
   //**************************************************
-  //firesCounter = 0; //start with a random attack
-  firesCounter = numberOfFires; //always start with Fire
+  firesCounter = 0; //start with a random attack
+  //firesCounter = numberOfFires; //always start with Fire
   //**************************************************
   //**************************************************
   currentAttack = SelectNewAttack(); //select the first attack
