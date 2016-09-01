@@ -47,8 +47,9 @@ long lastInRangeTime;
 //measures
 //Pixy x: 0 ~ 319
 //Pixy height: 1 ~ 200
-int runMaxThresh = 82; //RUN ATTACK: if the pixy cam get an higher value for the height of the shield's box, the player will be considered not in range
-int runMinThresh = 47; //RUN ATTACK: if the pixy cam get a lower value for the height of the shield's box, the player will be considered not in range
+int fireTime = 2000;
+int runMaxThresh = 55; //RUN ATTACK: if the pixy cam get an higher value for the height of the shield's box, the player will be considered not in range
+int runMinThresh = 28; //RUN ATTACK: if the pixy cam get a lower value for the height of the shield's box, the player will be considered not in range
 int rotationMaxThresh = 259; //ROTATION ATTACK: if the pixy cam get an higher value for the x position of the shield's box, the player will be considered not in range
 int rotationMinThresh = 60; //ROTATION ATTACK: if the pixy cam get a lower value for the x position of the shield's box, the player will be considered not in range
 int blinkDelta = 200; //RUN ATTACK and ROTATION ATTACK: set blink frequency
@@ -57,7 +58,7 @@ int runTimeToWin = 8000;
 int runTimeToLose = 3000;
 int rotationTimeToWin = 8000;
 int rotationTimeToLose = 3000;
-int numberOfFires = 5; //number of consecutive fires
+int numberOfFires = 4; //number of consecutive fires
 
 
 //functions to use the LED stripe
@@ -114,7 +115,7 @@ void AttackWon() {
   attackEND = false;
   newAttack = true;
   currentAttack = SelectNewAttack(); //select next attack
-  delay(4000);
+  delay(1000);
 }
 
 attackType SelectNewAttack() {
@@ -162,7 +163,7 @@ void Fire() {
     MakePINK();
     CatchFire(pinkS, blueS);
   }
-  if (millis() - timeStart > 3000) {
+  if (millis() - timeStart > fireTime) {
     attackEND = true;
     if (attackWon == false) {
       gameOver = true;
@@ -249,8 +250,8 @@ void Run() {
     attackWon = true; //attackWon and gameOver can be true at the same time but the gameOver condition has the priority
   }
   if (millis() - timeStart < runTimeEscape) {
-    serialWheels.println("r 0.3 0 0");
-  } else serialWheels.println("r -0.3 0 0");
+    serialWheels.println("r 0.4 0 0");
+  } else serialWheels.println("r -0.4 0 0");
 }
 
 //Rotation attack
@@ -273,8 +274,8 @@ void Rotation() {
     lastInRangeTime = millis();
   }
   if (rotationClock == true) {
-    serialWheels.println("r 0 0 -0.8");
-  } else serialWheels.println("r 0 0 0.8");
+    serialWheels.println("r 0 0 -0.95");
+  } else serialWheels.println("r 0 0 0.95");
   uint16_t blocks;
   blocks = pixy.getBlocks();
   if (blocks) {                  //uso white (signature GREEN) ma POI ANDRÀ MODIFICATO!!!!***********
@@ -326,12 +327,21 @@ void setup() {
   pinMode(red, OUTPUT);
   pinMode(green, OUTPUT);
   runTimeEscape = runTimeToWin / 2;
+  MakeGREEN();
+  delay(700);
+  MakePINK();
+  delay(700);
+  MakeBLUE();
+  delay(700);
+  MakeRED();
+  delay(700);
   LedsOff();
+  delay(1000);
   //**************************************************
   //COMMENT ONE OF THE 2 OPTIONS
   //**************************************************
-  firesCounter = 0; //start with a random attack
-  //firesCounter = numberOfFires; //always start with Fire
+  //firesCounter = 0; //start with a random attack
+  firesCounter = numberOfFires; //always start with Fire
   //**************************************************
   //**************************************************
   currentAttack = SelectNewAttack(); //select the first attack
